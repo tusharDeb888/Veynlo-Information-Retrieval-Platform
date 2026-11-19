@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+firebase-service-account.json
+*.pem
+*.key
+
+# Runtime data and local tooling
+celerybeat-schedule
+*.log
+graphify-out/
+*firebase*.json
+app/*firebase*.json
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/

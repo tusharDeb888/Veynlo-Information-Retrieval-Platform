@@ -1,0 +1,53 @@
+# ── Stage 1: Build ──────────────────────────────────────────────
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml ./
+
+# Install Python deps into a virtual environment for clean copy
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN python -c "import tomllib; open('requirements.txt', 'w').write('\n'.join(tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']))" && \
+    pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
+
+# ── Stage 2: Runtime ───────────────────────────────────────────
+FROM python:3.12-slim
+
+LABEL maintainer="rag-platform-team"
+LABEL description="Multi-Tenant RAG Knowledge Assurance Platform — Celery Worker"
+
+WORKDIR /app
+
+# Runtime-only system deps
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libpq5 curl && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
+
+# Copy venv from builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    C_FORCE_ROOT=0
+
+# Copy application code
+COPY --chown=appuser:appuser app/ ./app/
+COPY --chown=appuser:appuser migrations/ ./migrations/
+COPY --chown=appuser:appuser alembic.ini ./
+COPY --chown=appuser:appuser pyproject.toml ./
+
+RUN pip install --no-cache-dir --no-deps -e .
+
+# Switch to non-root user
+USER appuser
+
+# Default command — overridden in docker-compose for beat vs worker
+CMD ["celery", "-A", "app.core.celery_app", "worker", "-Q", "ingestion,default", "--concurrency=2", "--max-tasks-per-child=50", "--loglevel=info"]

@@ -1,0 +1,16 @@
+.venv
+venv
+ENV
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.git
+.gitignore
+.env
+*.egg-info
+graphify-out
+tests
